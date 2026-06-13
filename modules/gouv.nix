@@ -8,36 +8,31 @@ let
 
   gitConfig = pkgs.writeText "git-config-gouv" ''
     [user]
-      name = ${cfg.name}
-      email = ${cfg.email}
+      name = ${config.sops.placeholder.gouv-name}
+      email = ${config.sops.placeholder.gouv-email}
     [commit]
       gpgsign = true
     [user]
-      signingkey = ${cfg.gpgKey or ""}
+      signingkey = ${config.sops.placeholder.gouv-gpg-key or ""}
   '';
 in
 {
   options.identities.gouv = {
     enable = mkEnableOption "the gouv identity";
-
-    name = mkOption {
-      type = types.str;
-      description = "Git commit author name.";
-    };
-
-    email = mkOption {
-      type = types.str;
-      description = "Git commit author email.";
-    };
-
-    gpgKey = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      description = "GPG signing key ID.";
-    };
   };
 
   config = mkIf cfg.enable {
+    sops = {
+      age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
+      defaultSopsFile = ./../secrets/identities.yaml;
+      defaultSopsFormat = "yaml";
+      secrets = {
+        gouv-name = { };
+        gouv-email = { };
+        gouv-gpg-key = { };
+      };
+    };
+
     xdg.configFile."git/config.d/gouv".source = gitConfig;
   };
 }

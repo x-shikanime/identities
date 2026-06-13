@@ -8,36 +8,31 @@ let
 
   gitConfig = pkgs.writeText "git-config-operator6o" ''
     [user]
-      name = ${cfg.name}
-      email = ${cfg.email}
+      name = ${config.sops.placeholder.operator6o-name}
+      email = ${config.sops.placeholder.operator6o-email}
     [commit]
       gpgsign = true
     [user]
-      signingkey = ${cfg.gpgKey or ""}
+      signingkey = ${config.sops.placeholder.operator6o-gpg-key or ""}
   '';
 in
 {
   options.identities.operator-6o = {
     enable = mkEnableOption "the operator-6o identity";
-
-    name = mkOption {
-      type = types.str;
-      description = "Git commit author name.";
-    };
-
-    email = mkOption {
-      type = types.str;
-      description = "Git commit author email.";
-    };
-
-    gpgKey = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      description = "GPG signing key ID.";
-    };
   };
 
   config = mkIf cfg.enable {
+    sops = {
+      age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
+      defaultSopsFile = ./../secrets/identities.yaml;
+      defaultSopsFormat = "yaml";
+      secrets = {
+        operator6o-name = { };
+        operator6o-email = { };
+        operator6o-gpg-key = { };
+      };
+    };
+
     xdg.configFile."git/config.d/operator6o".source = gitConfig;
   };
 }

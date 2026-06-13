@@ -1,53 +1,40 @@
 # Identities
 
-Nix flake modules for managing personas — name, email, and GPG key.
-Each identity is a separate file under `modules/`.
+Nix flake modules for managing personas. PII is stored in sops-encrypted secrets.
+Each identity writes config files to XDG locations via `xdg.configFile`.
 
 ## Identities
 
 - **shikanime** — Primary identity for Shikanime Studio work.
-  - Name: `Shikanime Deva`
-  - Email: `william.phetsinorath@shikanime.studio`
-  - GPG: `09CA52A835C14157`
+  - Config: `~/.config/git/config.d/shikanime`, `~/.config/jj/conf.d/shikanime.toml`
+  - Sops secrets: `shikanime-name`, `shikanime-email`, `shikanime-gpg-key`, `shikanime-ssh-signing-key`
 - **gouv** — Government identity.
-  - Name: `William Phetsinorath`
-  - Email: `william.phetsinorath-open@interieur.gouv.fr`
-  - GPG: `0CC037FFEA0769A1`
+  - Config: `~/.config/git/config.d/gouv`
 - **operator-6o** — YoRHa operator identity.
-  - Name: `Operator 6O`
-  - Email: `operator6o@shikanime.studio`
-  - GPG: `5F88DB0A4256C20F`
+  - Config: `~/.config/git/config.d/operator6o`
 
 ## Usage
+
+Consumer must import both `sops-nix.homeModules.default` and `identities.homeModules.shikanime`:
 
 ```nix
 {
   inputs.identities.url = "github:shikanime/identities";
+  inputs.sops-nix.url = "github:mic92/sops-nix";
 
-  outputs = { self, identities, home-manager, ... }: {
+  outputs = { self, identities, sops-nix, home-manager, ... }: {
     homeConfigurations.user = home-manager.lib.homeConfiguration {
       modules = [
+        sops-nix.homeModules.default
         identities.homeModules.shikanime
-        # or identities.homeModules.gouv
-        # or identities.homeModules.operator-6o
       ];
     };
   };
 }
 ```
 
-## Module Options
-
-Each identity module (`shikanime`, `gouv`, `operator-6o`) exposes:
-
-| Option   | Type   | Description                    |
-| -------- | ------ | ------------------------------ |
-| `enable` | bool   | Activate this identity.        |
-| `name`   | str    | Full name for this identity.   |
-| `email`  | str    | Email for this identity.       |
-| `gpgKey` | str\|null | GPG signing key ID.         |
-
-These options are consumed by the caller to configure `programs.git`, signing, etc.
+The identities module declares `sops.secrets` and reads PII from `config.sops.placeholder.*`.
+The consumer must provide `sops-nix.homeModules.default` for the `sops` option to be available.
 
 ## File Structure
 
@@ -55,16 +42,24 @@ These options are consumed by the caller to configure `programs.git`, signing, e
 modules/
 ├── base.nix           # Shared types
 ├── default.nix        # Aggregator — imports all identities
-├── shikanime.nix      # Primary identity options
-├── gouv.nix           # Government identity options
-└── operator-6o.nix    # YoRHa operator identity options
+├── identities.nix     # Top-level options
+├── shikanime.nix      # Primary identity (sops + config files)
+├── gouv.nix           # Government identity (config file)
+└── operator-6o.nix    # YoRHa operator identity (config file)
+
+secrets/
+└── identities.yaml    # Sops-encrypted PII
 ```
+
+## Sops
+
+Secrets are encrypted with age key `age1pwl9yz4k4255a4h8qz7lafce8wxhsul0cnqwmr8528fqgujlfshshv3z3g`.
+Edit with: `sops secrets/identities.yaml`
 
 ## Coding Style
 
 - Nix files: 2-space indentation, `with lib;` at top.
 - Commit messages: plain-text capitalized title, no conventional-commit prefix.
-  Body with labels (`Design:`, `Related:`, `Closes #`).
 - Run `nix fmt` before shipping.
 
 ## Stack

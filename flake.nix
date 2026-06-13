@@ -88,6 +88,9 @@
         homeModules = {
           default = import ./modules/default.nix;
           identities = import ./modules/default.nix;
+          shikanime = import ./modules/shikanime.nix;
+          gouv = import ./modules/gouv.nix;
+          "operator-6o" = import ./modules/operator-6o.nix;
         };
       };
     };

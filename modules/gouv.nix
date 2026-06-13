@@ -1,10 +1,20 @@
 # Gouv identity — government persona.
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 with lib;
 
 let
   cfg = config.identities.gouv;
+
+  gitConfig = pkgs.writeText "git-config-gouv" ''
+    [user]
+      name = ${cfg.name}
+      email = ${cfg.email}
+    [commit]
+      gpgsign = true
+    [user]
+      signingkey = ${cfg.gpgKey or ""}
+  '';
 in
 {
   options.identities.gouv = {
@@ -27,5 +37,9 @@ in
       default = "0CC037FFEA0769A1";
       description = "GPG signing key ID.";
     };
+  };
+
+  config = mkIf cfg.enable {
+    xdg.configFile."git/config.d/gouv".source = gitConfig;
   };
 }

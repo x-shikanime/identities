@@ -6,26 +6,8 @@ with lib;
 let
   cfg = config.identities.shikanime;
 
-  gitConfig = pkgs.writeText "git-config-shikanime" ''
-    [user]
-      name = ${config.sops.placeholder.shikanime-name}
-      email = ${config.sops.placeholder.shikanime-email}
-    [commit]
-      gpgsign = true
-    [user]
-      signingkey = ${config.sops.placeholder.shikanime-ssh-signing-key}
-  '';
-
-  jjConfig = pkgs.writeText "jj-config-shikanime.toml" ''
-    [user]
-    name = "${config.sops.placeholder.shikanime-name}"
-    email = "${config.sops.placeholder.shikanime-email}"
-
-    [signing]
-    backend = "ssh"
-    behavior = "own"
-    key = "${config.sops.placeholder.shikanime-ssh-signing-key}
-  '';
+  gitIni = pkgs.formats.gitIni { };
+  toml = pkgs.formats.toml { };
 in
 {
   options.identities.shikanime = {
@@ -43,9 +25,43 @@ in
         shikanime-gpg-key = { };
         shikanime-ssh-signing-key = { };
       };
+
+      templates = {
+        shikanime-git-config = {
+          file = gitIni.generate "config" {
+            gpg.format = "ssh";
+            user = {
+              name = config.sops.placeholder.shikanime-name;
+              email = config.sops.placeholder.shikanime-email;
+              signingkey = config.sops.placeholder.shikanime-ssh-signing-key;
+            };
+            commit.gpgsign = true;
+          };
+          mode = "0644";
+        };
+
+        shikanime-jj-config = {
+          file = toml.generate "config.toml" {
+            user = {
+              name = config.sops.placeholder.shikanime-name;
+              email = config.sops.placeholder.shikanime-email;
+            };
+            signing = {
+              backend = "ssh";
+              behavior = "own";
+              key = config.sops.placeholder.shikanime-ssh-signing-key;
+            };
+          };
+          mode = "0644";
+        };
+      };
     };
 
-    xdg.configFile."git/config.d/shikanime".source = gitConfig;
-    xdg.configFile."jj/conf.d/shikanime.toml".source = jjConfig;
+    xdg.configFile = {
+      "git/config.d/shikanime".source =
+        config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-git-config.path;
+      "jj/conf.d/shikanime.toml".source =
+        config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-jj-config.path;
+    };
   };
 }

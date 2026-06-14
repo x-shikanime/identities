@@ -19,37 +19,40 @@ in
       age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
       defaultSopsFile = ./../secrets/shikanime.enc.yaml;
       defaultSopsFormat = "yaml";
+
       secrets = {
-        shikanime-name = { };
         shikanime-email = { };
         shikanime-gpg-key = { };
+        shikanime-name = { };
         shikanime-ssh-signing-key = { };
       };
 
       templates = {
         shikanime-git-config = {
           file = gitIni.generate "config" {
+            commit.gpgsign = true;
             gpg.format = "ssh";
+
             user = {
-              name = config.sops.placeholder.shikanime-name;
               email = config.sops.placeholder.shikanime-email;
+              name = config.sops.placeholder.shikanime-name;
               signingkey = config.sops.placeholder.shikanime-ssh-signing-key;
             };
-            commit.gpgsign = true;
           };
           mode = "0644";
         };
 
         shikanime-jj-config = {
           file = toml.generate "config.toml" {
-            user = {
-              name = config.sops.placeholder.shikanime-name;
-              email = config.sops.placeholder.shikanime-email;
-            };
             signing = {
               backend = "ssh";
               behavior = "own";
               key = config.sops.placeholder.shikanime-ssh-signing-key;
+            };
+
+            user = {
+              email = config.sops.placeholder.shikanime-email;
+              name = config.sops.placeholder.shikanime-name;
             };
           };
           mode = "0644";

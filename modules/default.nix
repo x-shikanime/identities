@@ -10,8 +10,8 @@
   ];
 
   options.identities = lib.mkOption {
-    type = lib.types.attrs;
     default = { };
     description = "Identity configuration.";
+    type = lib.types.attrs;
   };
 }

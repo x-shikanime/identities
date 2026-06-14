@@ -18,22 +18,24 @@ in
       age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
       defaultSopsFile = ./../secrets/operator6o.enc.yaml;
       defaultSopsFormat = "yaml";
+
       secrets = {
-        operator6o-name = { };
         operator6o-email = { };
         operator6o-gpg-key = { };
+        operator6o-name = { };
       };
 
       templates = {
         operator6o-git-config = {
           file = gitIni.generate "config" {
+            commit.gpgsign = true;
             gpg.format = "ssh";
+
             user = {
-              name = config.sops.placeholder.operator6o-name;
               email = config.sops.placeholder.operator6o-email;
+              name = config.sops.placeholder.operator6o-name;
               signingkey = config.sops.placeholder.operator6o-gpg-key;
             };
-            commit.gpgsign = true;
           };
           mode = "0644";
         };

@@ -18,22 +18,24 @@ in
       age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
       defaultSopsFile = ./../secrets/gouv.enc.yaml;
       defaultSopsFormat = "yaml";
+
       secrets = {
-        gouv-name = { };
         gouv-email = { };
         gouv-gpg-key = { };
+        gouv-name = { };
       };
 
       templates = {
         gouv-git-config = {
           file = gitIni.generate "config" {
+            commit.gpgsign = true;
             gpg.format = "ssh";
+
             user = {
-              name = config.sops.placeholder.gouv-name;
               email = config.sops.placeholder.gouv-email;
+              name = config.sops.placeholder.gouv-name;
               signingkey = config.sops.placeholder.gouv-gpg-key;
             };
-            commit.gpgsign = true;
           };
           mode = "0644";
         };

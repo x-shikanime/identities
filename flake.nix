@@ -83,20 +83,12 @@
         "aarch64-darwin"
       ];
 
-      flake =
-        let
-          defaultModule = import ./modules/default.nix;
-          modules = {
-            default = defaultModule;
-            identities = defaultModule;
-            shikanime = import ./modules/shikanime.nix;
-            gouv = import ./modules/gouv.nix;
-            "operator-6o" = import ./modules/operator-6o.nix;
-          };
-        in
-        {
-          homeModule = defaultModule;
-          homeModules = modules;
+      flake = {
+        homeModule = ./modules/default.nix;
+        homeModules = {
+          default = ./modules/default.nix;
+          identities = ./modules/shikanime.nix;
         };
+      };
     };
 }

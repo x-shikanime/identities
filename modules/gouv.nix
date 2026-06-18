@@ -1,5 +1,5 @@
 # Gouv identity — government persona.
-# Provides identity data and generates includable git config fragments.
+# Declares sops secrets for PII and generates includable git config fragments.
 # Does NOT enable or configure git itself.
 { config, lib, pkgs, ... }:
 
@@ -13,29 +13,6 @@ in
 {
   options.identities.gouv = {
     enable = mkEnableOption "the gouv identity";
-
-    name = mkOption {
-      description = "Full name for this identity.";
-      type = types.str;
-      default = "William Phetsinorath";
-    };
-
-    email = mkOption {
-      description = "Email address for this identity.";
-      type = types.str;
-    };
-
-    gpgKey = mkOption {
-      default = null;
-      description = "GPG signing key ID.";
-      type = types.nullOr types.str;
-    };
-
-    sshSigningKey = mkOption {
-      default = null;
-      description = "SSH signing key (public).";
-      type = types.nullOr types.str;
-    };
 
     git = {
       enable = mkEnableOption "git identity includes for gouv" // {
@@ -65,24 +42,39 @@ in
   };
 
   config = mkIf cfg.enable {
-    identities.git.includes = mkIf cfg.git.enable [
-      (
-        let
-          gitConfig = gitIni.generate "config" {
+    sops = {
+      age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
+      defaultSopsFile = ./../secrets/gouv.enc.yaml;
+      defaultSopsFormat = "yaml";
+
+      secrets = {
+        gouv-email = { };
+        gouv-gpg-key = { };
+        gouv-name = { };
+      };
+
+      templates = {
+        gouv-git-config = {
+          file = gitIni.generate "config" {
             gpg.format = cfg.git.gpgFormat;
             user = {
-              inherit (cfg) name email;
-            } // optionalAttrs (cfg.gpgKey != null) {
-              signingkey = cfg.gpgKey;
-            } // optionalAttrs (cfg.sshSigningKey != null) {
-              signingkey = cfg.sshSigningKey;
+              email = config.sops.placeholder.gouv-email;
+              name = config.sops.placeholder.gouv-name;
+              signingkey = config.sops.placeholder.gouv-gpg-key;
             };
           } // optionalAttrs cfg.git.signByDefault {
             commit.gpgsign = true;
           };
+          mode = "0644";
+        };
+      };
+    };
 
+    identities.git.includes = mkIf cfg.git.enable [
+      (
+        let
           baseEntry = {
-            path = config.lib.file.mkOutOfStoreSymlink gitConfig;
+            path = config.lib.file.mkOutOfStoreSymlink config.sops.templates.gouv-git-config.path;
           };
         in
         if cfg.git.gitpath != null

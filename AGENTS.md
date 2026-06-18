@@ -1,8 +1,8 @@
 # Identities
 
-Nix flake modules for managing personas. Each identity provides name, email,
-and key material as options, then generates includable config fragments for
-git (`programs.git.includes`), Jujutsu (`jj/conf.d/`), and sapling.
+Nix flake modules for managing personas. Each identity declares its own sops
+secrets for PII (name, email, GPG key, SSH signing key) and generates
+includable config fragments via sops templates.
 
 **The identity modules do NOT enable or configure the VCS tools themselves.**
 They only emit config fragments. The consumer is responsible for enabling
@@ -11,22 +11,31 @@ They only emit config fragments. The consumer is responsible for enabling
 ## Identities
 
 - **shikanime** — Primary identity for Shikanime Studio work.
-  - Config: `~/.config/jj/conf.d/shikanime.toml`, `~/.config/sapling/sapling.conf`
-  - Git includes: emitted via `identities.git.includes`
+  - Sops secrets: `shikanime-name`, `shikanime-email`, `shikanime-gpg-key`, `shikanime-ssh-signing-key`
+  - Sops file: `secrets/shikanime.enc.yaml`
+  - Output: git includes, `jj/conf.d/shikanime.toml`, `sapling/sapling.conf`
 - **gouv** — Government identity.
-  - Git includes: emitted via `identities.git.includes` (with `gitpath` condition)
+  - Sops secrets: `gouv-name`, `gouv-email`, `gouv-gpg-key`
+  - Sops file: `secrets/gouv.enc.yaml`
+  - Output: git includes (with `gitpath` condition)
 - **operator-6o** — YoRHa operator identity.
-  - Git includes: emitted via `identities.git.includes` (with `gitpath` condition)
+  - Sops secrets: `operator6o-name`, `operator6o-email`, `operator6o-gpg-key`
+  - Sops file: `secrets/operator6o.enc.yaml`
+  - Output: git includes (with `gitpath` condition)
 
 ## Usage
+
+Consumer must import both `sops-nix.homeModules.default` and the identities module:
 
 ```nix
 {
   inputs.identities.url = "github:x-shikanime/identities";
+  inputs.sops-nix.url = "github:mic92/sops-nix";
 
-  outputs = { self, identities, home-manager, ... }: {
+  outputs = { self, identities, sops-nix, home-manager, ... }: {
     homeConfigurations.user = home-manager.lib.homeConfiguration {
       modules = [
+        sops-nix.homeModules.default
         identities.homeModules.default
 
         # Consume the generated git includes
@@ -56,37 +65,33 @@ modules/
 ├── base.nix           # Shared types
 ├── default.nix        # Aggregator — imports all identities
 ├── identities.nix     # Top-level options (global toggle, git/jj/sapling)
-├── shikanime.nix      # Primary identity (git + jj + sapling)
-├── gouv.nix           # Government identity (git only)
-└── operator-6o.nix    # YoRHa operator identity (git only)
+├── shikanime.nix      # Primary identity (sops + git + jj + sapling)
+├── gouv.nix           # Government identity (sops + git)
+└── operator-6o.nix    # YoRHa operator identity (sops + git)
+
+secrets/
+├── shikanime.enc.yaml # Sops-encrypted PII for shikanime
+├── gouv.enc.yaml      # Sops-encrypted PII for gouv
+└── operator6o.enc.yaml # Sops-encrypted PII for operator-6o
 ```
 
-## Commit Style
+## Sops
 
-- Plain-text capitalized title, no conventional-commit prefix
-- Body with labels: `Design:`, `Related:`, `Closes #`
-- Keep Markdown lines wrapped at 80 columns and run `nix fmt` before shipping
+Secrets are encrypted with age key `age1pwl9yz4k4255a4h8qz7lafce8wxhsul0cnqwmr8528fqgujlfshshv3z3g`.
+Edit with: `sops secrets/<name>.enc.yaml`
+
+## Coding Style
+
+- Nix files: 2-space indentation, `with lib;` at top.
+- Commit messages: plain-text capitalized title, no conventional-commit prefix.
+- Run `nix fmt` before shipping.
 
 ## Stack
 
-- 1 commit == 1 PR via ghstack (1 commit is 1 logical atomic change)
-- The commit title **is** the PR title; the commit body **is** the PR body
-- Split work into stacked PRs to keep each PR small and reviewable
-- To pull down an existing stack: `ghstack checkout <PR_NUMBER>`
-- To update a PR: edit files, then `jj squash` (or `git commit --amend`) into
-  the **target commit** of the stack — the one that PR represents; the commit
-  message updates the PR title and body automatically when resubmitted
-- Resubmit with `ghstack` after squashing
-- `ghstack land` on the head PR to land the entire stack
-- Never `gh pr merge` (creates poisoned commits)
-- Never force-push ghstack branches
+- 1 commit == 1 PR via ghstack.
+- Amend + `ghstack` to resubmit.
+- `ghstack land` on head PR to land the entire stack.
+- Never `gh pr merge` (creates poisoned commits).
+- Never force-push ghstack branches.
 
-## Protect `main`
-
-- Require 1 approving review
-- Require linear history (no merge commits)
-- Require signed commits
-- Squash+rebase merge only
-
-_Always use worktrees when making changes. Test with `nix flake check` before
-submitting._
+_Licensed under Apache-2.0._

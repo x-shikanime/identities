@@ -1,7 +1,7 @@
 # Shikanime identity — primary persona for Shikanime Studio work.
-# Provides identity data (name, email, keys) and generates includable config
-# fragments for git, Jujutsu, and sapling. Does NOT enable or configure
-# the tools themselves — the consumer must enable them.
+# Declares sops secrets for PII (name, email, gpg key, ssh signing key)
+# and generates config fragments for git, Jujutsu, and sapling via sops templates.
+# Does NOT enable or configure the tools themselves.
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -15,30 +15,6 @@ in
 {
   options.identities.shikanime = {
     enable = mkEnableOption "the shikanime identity";
-
-    name = mkOption {
-      description = "Full name for this identity.";
-      type = types.str;
-      default = "William Phetsinorath";
-    };
-
-    email = mkOption {
-      description = "Email address for this identity.";
-      type = types.str;
-      default = "william.phetsinorath@shikanime.studio";
-    };
-
-    gpgKey = mkOption {
-      default = null;
-      description = "GPG signing key ID.";
-      type = types.nullOr types.str;
-    };
-
-    sshSigningKey = mkOption {
-      default = null;
-      description = "SSH signing key (public).";
-      type = types.nullOr types.str;
-    };
 
     git = {
       enable = mkEnableOption "git identity includes for shikanime" // {
@@ -101,22 +77,67 @@ in
   };
 
   config = mkIf cfg.enable {
-    identities.git.includes = mkIf cfg.git.enable [
-      (
-        let
-          gitConfig = gitIni.generate "config" {
+    sops = {
+      age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
+      defaultSopsFile = ./../secrets/shikanime.enc.yaml;
+      defaultSopsFormat = "yaml";
+
+      secrets = {
+        shikanime-email = { };
+        shikanime-gpg-key = { };
+        shikanime-name = { };
+        shikanime-ssh-signing-key = { };
+      };
+
+      templates = {
+        shikanime-git-config = {
+          file = gitIni.generate "config" {
             gpg.format = cfg.git.gpgFormat;
             user = {
-              inherit (cfg) name email;
-            } // optionalAttrs (cfg.sshSigningKey != null) {
-              signingkey = cfg.sshSigningKey;
+              email = config.sops.placeholder.shikanime-email;
+              name = config.sops.placeholder.shikanime-name;
+              signingkey = config.sops.placeholder.shikanime-ssh-signing-key;
             };
           } // optionalAttrs cfg.git.signByDefault {
             commit.gpgsign = true;
           };
+          mode = "0644";
+        };
 
+        shikanime-jj-config = {
+          file = toml.generate "config.toml" {
+            signing = {
+              backend = cfg.jj.signingBackend;
+              behavior = cfg.jj.signingBehavior;
+              key = config.sops.placeholder.shikanime-ssh-signing-key;
+            };
+            user = {
+              email = config.sops.placeholder.shikanime-email;
+              name = config.sops.placeholder.shikanime-name;
+            };
+          } // optionalAttrs (cfg.jj.repositories != [ ]) {
+            "--when.repositories" = cfg.jj.repositories;
+          };
+          mode = "0644";
+        };
+
+        shikanime-sapling-config = {
+          file = (pkgs.formats.ini { }).generate "sapling.conf" {
+            ui = {
+              username = "${config.sops.placeholder.shikanime-name} <${config.sops.placeholder.shikanime-email}>";
+            };
+            gpg.key = config.sops.placeholder.shikanime-gpg-key;
+          };
+          mode = "0644";
+        };
+      };
+    };
+
+    identities.git.includes = mkIf cfg.git.enable [
+      (
+        let
           baseEntry = {
-            path = config.lib.file.mkOutOfStoreSymlink gitConfig;
+            path = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-git-config.path;
           };
         in
         if cfg.git.gitpath != null
@@ -126,41 +147,11 @@ in
     ];
 
     xdg.configFile."jj/conf.d/shikanime.toml" = mkIf cfg.jj.enable {
-      source =
-        let
-          jjConfig = toml.generate "config.toml" (
-            {
-              user = {
-                inherit (cfg) name email;
-              };
-            }
-            // optionalAttrs (cfg.sshSigningKey != null) {
-              signing = {
-                backend = cfg.jj.signingBackend;
-                behavior = cfg.jj.signingBehavior;
-                key = cfg.sshSigningKey;
-              };
-            }
-            // optionalAttrs (cfg.jj.repositories != [ ]) {
-              "--when.repositories" = cfg.jj.repositories;
-            }
-          );
-        in
-        config.lib.file.mkOutOfStoreSymlink jjConfig;
+      source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-jj-config.path;
     };
 
     xdg.configFile."sapling/sapling.conf" = mkIf cfg.sapling.enable {
-      source =
-        let
-          slConfig = (pkgs.formats.ini { }).generate "sapling.conf" {
-            ui = {
-              username = "${cfg.name} <${cfg.email}>";
-            };
-          } // optionalAttrs (cfg.gpgKey != null) {
-            gpg.key = cfg.gpgKey;
-          };
-        in
-        config.lib.file.mkOutOfStoreSymlink slConfig;
+      source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-sapling-config.path;
     };
   };
 }

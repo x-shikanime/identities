@@ -1,8 +1,8 @@
 # Identities
 
 Nix flake modules for managing personas. Each identity declares its own sops
-secrets for PII (name, email, GPG key, SSH signing key) and generates
-includable config fragments via sops templates.
+secrets for PII (name, email) and, where needed, an SSH signing key, then
+generates includable config fragments via sops templates.
 
 **The identity modules do NOT enable or configure the VCS tools themselves.**
 They only emit config fragments. The consumer is responsible for enabling
@@ -11,21 +11,25 @@ They only emit config fragments. The consumer is responsible for enabling
 ## Identities
 
 - **shikanime** — Primary identity for Shikanime Studio work.
-  - Sops secrets: `shikanime-name`, `shikanime-email`, `shikanime-gpg-key`, `shikanime-ssh-signing-key`
+  - Sops secrets: `shikanime-name`, `shikanime-email`, `shikanime-gpg-key`,
+    `shikanime-ssh-signing-key`
   - Sops file: `secrets/shikanime.enc.yaml`
   - Output: git includes, `jj/conf.d/shikanime.toml`, `sapling/sapling.conf`
 - **gouv** — Government identity.
-  - Sops secrets: `gouv-name`, `gouv-email`, `gouv-gpg-key`
+  - Sops secrets: `gouv-name`, `gouv-email`, `gouv-ssh-signing-key`
   - Sops file: `secrets/gouv.enc.yaml`
-  - Output: git includes (with `gitpath` condition)
+  - Output: git includes (scoped via `git.condition`), `jj/conf.d/gouv.conf`
 - **operator-6o** — YoRHa operator identity.
-  - Sops secrets: `operator6o-name`, `operator6o-email`, `operator6o-gpg-key`
+  - Sops secrets: `operator6o-name`, `operator6o-email`,
+    `operator6o-ssh-signing-key`
   - Sops file: `secrets/operator6o.enc.yaml`
-  - Output: git includes (with `gitpath` condition)
+  - Output: git includes (scoped via `git.condition`),
+    `jj/conf.d/operator6o.conf`
 
 ## Usage
 
-Consumer must import both `sops-nix.homeModules.default` and the identities module:
+Consumer must import both `sops-nix.homeModules.default` and the identities
+module:
 
 ```nix
 {
@@ -38,10 +42,7 @@ Consumer must import both `sops-nix.homeModules.default` and the identities modu
         sops-nix.homeModules.default
         identities.homeModules.default
 
-        # Consume the generated git includes
-        ({ config, ... }: {
-          programs.git.includes = config.identities.git.includes;
-        })
+        # Identity modules write directly to programs.git.includes
       ];
     };
   };
@@ -54,9 +55,18 @@ Inspired by Catppuccin/nix:
 
 - `identities.enable` — global toggle for all identity modules
 - `identities.<name>.enable` — per-identity toggle
-- `identities.<name>.git.enable` / `.jj.enable` / `.sapling.enable` — per-tool output control
-- `identities.<name>.git.gitpath` — when set, scopes the git include to a path via `condition`
-- `identities.git.includes` — aggregated list of all git include entries from enabled identities
+- `identities.<name>.git.enable` / `.jj.enable` / `.sapling.enable` — per-tool
+  output control
+- `identities.<name>.git.extraConfig` — forwarded git config merged into the
+  generated include; SSH signing fields are fixed by the module
+- `identities.<name>.git.condition` — optional include condition, such as
+  `gitpath:<path>`
+- `identities.<name>.jj.extraConfig` — forwarded Jujutsu config merged into the
+  generated include; signing fields are fixed by the module. Use
+  `--when.repositories` there to scope it to repositories
+- `identities.homeModules.default` — option-driven home-manager module that
+  exposes `identities.shikanime.enable`, `identities.gouv.enable`, and
+  `identities."operator-6o".enable`
 
 ## File Structure
 
@@ -66,8 +76,8 @@ modules/
 ├── default.nix        # Aggregator — imports all identities
 ├── identities.nix     # Top-level options (global toggle, git/jj/sapling)
 ├── shikanime.nix      # Primary identity (sops + git + jj + sapling)
-├── gouv.nix           # Government identity (sops + git)
-└── operator-6o.nix    # YoRHa operator identity (sops + git)
+├── gouv.nix           # Government identity (sops + git + jj)
+└── operator-6o.nix    # YoRHa operator identity (sops + git + jj)
 
 secrets/
 ├── shikanime.enc.yaml # Sops-encrypted PII for shikanime
@@ -77,8 +87,9 @@ secrets/
 
 ## Sops
 
-Secrets are encrypted with age key `age1pwl9yz4k4255a4h8qz7lafce8wxhsul0cnqwmr8528fqgujlfshshv3z3g`.
-Edit with: `sops secrets/<name>.enc.yaml`
+Secrets are encrypted with age key
+`age1pwl9yz4k4255a4h8qz7lafce8wxhsul0cnqwmr8528fqgujlfshshv3z3g`. Edit with:
+`sops secrets/<name>.enc.yaml`
 
 ## Coding Style
 

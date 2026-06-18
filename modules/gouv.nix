@@ -1,86 +1,126 @@
-# Gouv identity — government persona.
-# Declares sops secrets for PII and generates includable git config fragments.
-# Does NOT enable or configure git itself.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
 let
   cfg = config.identities.gouv;
+  includePath = config.lib.file.mkOutOfStoreSymlink config.sops.templates.gouv-git-config.path;
+  sshSigningKey = config.sops.placeholder.gouv-ssh-signing-key;
 
   gitIni = pkgs.formats.gitIni { };
+  toml = pkgs.formats.toml { };
 in
 {
+  imports = [
+    ./identities.nix
+  ];
+
   options.identities.gouv = {
-    enable = mkEnableOption "the gouv identity";
+    enable = mkEnableOption "the gouv identity" // {
+      default = false;
+    };
 
     git = {
       enable = mkEnableOption "git identity includes for gouv" // {
         default = true;
       };
 
-      gitpath = mkOption {
+      condition = mkOption {
         default = null;
         description = ''
-          If set, emit a conditional git include scoped to this path
-          (via `condition = "gitpath:<value>"`). If null, the include
-          is unconditional.
+          Optional git include condition, such as `gitpath:<path>`.
         '';
         type = types.nullOr types.str;
       };
 
-      signByDefault = mkEnableOption "commit signing by default for this identity" // {
-        default = true;
+      extraConfig = mkOption {
+        default = { };
+        description = ''
+          Extra git config merged into the generated identity include.
+          Signing settings are fixed by this module and cannot be overridden.
+        '';
+        type = types.attrs;
+      };
+    };
+
+    jj = {
+      enable = mkEnableOption "Jujutsu identity config for gouv" // {
+        default = false;
       };
 
-      gpgFormat = mkOption {
-        type = types.enum [ "ssh" "gpg" "x509" "openpgp" ];
-        default = "gpg";
-        description = "GPG format for signing.";
+      extraConfig = mkOption {
+        default = { };
+        description = ''
+          Extra Jujutsu config merged into the generated identity include.
+          Signing settings are fixed by this module and cannot be overridden.
+        '';
+        type = types.attrs;
       };
     };
   };
 
   config = mkIf cfg.enable {
     sops = {
-      age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
       defaultSopsFile = ./../secrets/gouv.enc.yaml;
-      defaultSopsFormat = "yaml";
-
       secrets = {
         gouv-email = { };
-        gouv-gpg-key = { };
         gouv-name = { };
+        gouv-ssh-signing-key = { };
       };
 
       templates = {
         gouv-git-config = {
-          file = gitIni.generate "config" {
-            gpg.format = cfg.git.gpgFormat;
-            user = {
-              email = config.sops.placeholder.gouv-email;
-              name = config.sops.placeholder.gouv-name;
-              signingkey = config.sops.placeholder.gouv-gpg-key;
-            };
-          } // optionalAttrs cfg.git.signByDefault {
-            commit.gpgsign = true;
-          };
+          file = gitIni.generate "config" (mkMerge [
+            cfg.git.extraConfig
+            {
+              user = {
+                email = config.sops.placeholder.gouv-email;
+                name = config.sops.placeholder.gouv-name;
+                signingkey = sshSigningKey;
+              };
+              commit.gpgsign = true;
+              gpg.format = "ssh";
+            }
+          ]);
+          mode = "0644";
+        };
+
+        gouv-jj-config = {
+          file = toml.generate "config.toml" (mkMerge [
+            cfg.jj.extraConfig
+            {
+              signing = {
+                backend = "ssh";
+                behavior = mkDefault "own";
+                key = sshSigningKey;
+              };
+              user = {
+                email = config.sops.placeholder.gouv-email;
+                name = config.sops.placeholder.gouv-name;
+              };
+            }
+          ]);
           mode = "0644";
         };
       };
     };
 
-    identities.git.includes = mkIf cfg.git.enable [
+    programs.git.includes = mkIf cfg.git.enable [
       (
-        let
-          baseEntry = {
-            path = config.lib.file.mkOutOfStoreSymlink config.sops.templates.gouv-git-config.path;
-          };
-        in
-        if cfg.git.gitpath != null
-        then baseEntry // { condition = "gitpath:${cfg.git.gitpath}"; }
-        else baseEntry
+        {
+          path = includePath;
+        }
+        // optionalAttrs (cfg.git.condition != null) { condition = cfg.git.condition; }
       )
     ];
+
+    xdg.configFile."jj/conf.d/gouv.conf" = mkIf cfg.jj.enable {
+      source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.gouv-jj-config.path;
+    };
   };
 }

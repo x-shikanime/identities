@@ -1,4 +1,3 @@
-# Shared identity types.
 { lib, ... }:
 
 with lib;

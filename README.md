@@ -1,16 +1,19 @@
 # shikanime/identities
 
-Nix flake modules for managing personas — git, GPG, SSH, and jj configuration.
-Each identity bundles a commit author, signing key, and host-specific SSH
-settings.
+Nix flake modules for managing personas. The modules focus on identity data and
+emit the smallest useful fragments for tools they support, without enabling the
+whole tool configuration.
+
+SSH signing is enforced by the identity modules themselves. `extraConfig` is
+only for non-signing Git settings.
 
 ## Identities
 
-| Identity     | Name                 | Email                                         | GPG Key            |
-| ------------ | -------------------- | --------------------------------------------- | ------------------ |
-| `shikanime`  | Shikanime Deva       | `william.phetsinorath@shikanime.studio`       | `09CA52A835C14157` |
-| `gouv`       | William Phetsinorath | `william.phetsinorath-open@interieur.gouv.fr` | `0CC037FFEA0769A1` |
-| `operator6o` | Operator 6O          | `operator6o@shikanime.studio`                 | `5F88DB0A4256C20F` |
+| Identity     | Name                 | Email                                         | Signing |
+| ------------ | -------------------- | --------------------------------------------- | ------- |
+| `shikanime`  | Shikanime Deva       | `william.phetsinorath@shikanime.studio`       | SSH     |
+| `gouv`       | William Phetsinorath | `william.phetsinorath-open@interieur.gouv.fr` | SSH     |
+| `operator6o` | Operator 6O          | `operator6o@shikanime.studio`                 | SSH     |
 
 ## Quick Start
 
@@ -18,7 +21,7 @@ settings.
 {
   inputs.identities.url = "github:shikanime/identities";
 
-  outputs = { self, identities, nixpkgs, home-manager, ... }: {
+  outputs = { self, identities, nixpkgs, home-manager, sops-nix, ... }: {
     # NixOS
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       modules = [
@@ -30,13 +33,26 @@ settings.
     # home-manager
     homeConfigurations.user = home-manager.lib.homeConfiguration {
       modules = [
-        identities.homeModules.identities
+        sops-nix.homeModules.default
+        identities.homeModules.default
+
         {
-          identities.shikanime = {
-            enable = true;
-            gitUserName = "Shikanime Deva";
-            gitUserEmail = "william.phetsinorath@shikanime.studio";
-            gpgSigningKey = "09CA52A835C14157";
+          identities = {
+            shikanime.enable = true;
+            gouv = {
+              enable = true;
+              git.condition = "gitpath:/home/shika/Source/Repos/github.com/cloud-pi-native";
+              jj.extraConfig."--when.repositories" = [
+                "/home/shika/Source/Repos/github.com/cloud-pi-native"
+              ];
+            };
+            "operator-6o" = {
+              enable = true;
+              git.condition = "gitpath:/home/shika/Source/Repos/github.com/operator6o";
+              jj.extraConfig."--when.repositories" = [
+                "/home/shika/Source/Repos/github.com/operator6o"
+              ];
+            };
           };
         }
       ];

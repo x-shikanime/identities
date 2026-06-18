@@ -1,44 +1,59 @@
-# Shikanime identity — primary persona for Shikanime Studio work.
-# Declares sops secrets for PII (name, email, gpg key, ssh signing key)
-# and generates config fragments for git, Jujutsu, and sapling via sops templates.
-# Does NOT enable or configure the tools themselves.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
 let
   cfg = config.identities.shikanime;
+  includePath = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-git-config.path;
+  sshSigningKey = config.sops.placeholder.shikanime-ssh-signing-key;
 
   gitIni = pkgs.formats.gitIni { };
   toml = pkgs.formats.toml { };
+  fixedGitConfig = {
+    user = {
+      email = config.sops.placeholder.shikanime-email;
+      name = config.sops.placeholder.shikanime-name;
+      signingkey = sshSigningKey;
+    };
+    commit.gpgsign = true;
+    gpg.format = "ssh";
+  };
 in
 {
+  imports = [
+    ./identities.nix
+  ];
+
   options.identities.shikanime = {
-    enable = mkEnableOption "the shikanime identity";
+    enable = mkEnableOption "the shikanime identity" // {
+      default = false;
+    };
 
     git = {
       enable = mkEnableOption "git identity includes for shikanime" // {
         default = true;
       };
 
-      gitpath = mkOption {
+      condition = mkOption {
         default = null;
         description = ''
-          If set, emit a conditional git include scoped to this path
-          (via `condition = "gitpath:<value>"`). If null, the include
-          is unconditional.
+          Optional git include condition, such as `gitpath:<path>`.
         '';
         type = types.nullOr types.str;
       };
 
-      signByDefault = mkEnableOption "commit signing by default for this identity" // {
-        default = true;
-      };
-
-      gpgFormat = mkOption {
-        type = types.enum [ "ssh" "gpg" "x509" "openpgp" ];
-        default = "ssh";
-        description = "GPG format for signing.";
+      extraConfig = mkOption {
+        default = { };
+        description = ''
+          Extra git config merged into the generated identity include.
+          Signing settings are fixed by this module and cannot be overridden.
+        '';
+        type = types.attrs;
       };
     };
 
@@ -47,25 +62,13 @@ in
         default = true;
       };
 
-      repositories = mkOption {
-        default = [ ];
+      extraConfig = mkOption {
+        default = { };
         description = ''
-          If non-empty, scope this identity to these repository paths
-          via `[--when.repositories]`. If empty, the config is global.
+          Extra Jujutsu config merged into the generated identity include.
+          Signing settings are fixed by this module and cannot be overridden.
         '';
-        type = types.listOf types.str;
-      };
-
-      signingBackend = mkOption {
-        type = types.enum [ "ssh" "gpg" ];
-        default = "ssh";
-        description = "Signing backend for Jujutsu.";
-      };
-
-      signingBehavior = mkOption {
-        type = types.enum [ "own" "force" ];
-        default = "own";
-        description = "Signing behavior for Jujutsu.";
+        type = types.attrs;
       };
     };
 
@@ -78,10 +81,7 @@ in
 
   config = mkIf cfg.enable {
     sops = {
-      age.keyFile = "${config.xdg.configHome}/sops/age/keys.txt";
       defaultSopsFile = ./../secrets/shikanime.enc.yaml;
-      defaultSopsFormat = "yaml";
-
       secrets = {
         shikanime-email = { };
         shikanime-gpg-key = { };
@@ -91,41 +91,34 @@ in
 
       templates = {
         shikanime-git-config = {
-          file = gitIni.generate "config" {
-            gpg.format = cfg.git.gpgFormat;
-            user = {
-              email = config.sops.placeholder.shikanime-email;
-              name = config.sops.placeholder.shikanime-name;
-              signingkey = config.sops.placeholder.shikanime-ssh-signing-key;
-            };
-          } // optionalAttrs cfg.git.signByDefault {
-            commit.gpgsign = true;
-          };
+          file = gitIni.generate "config" (mkMerge [
+            cfg.git.extraConfig
+            fixedGitConfig
+          ]);
           mode = "0644";
         };
 
         shikanime-jj-config = {
-          file = toml.generate "config.toml" {
-            signing = {
-              backend = cfg.jj.signingBackend;
-              behavior = cfg.jj.signingBehavior;
-              key = config.sops.placeholder.shikanime-ssh-signing-key;
-            };
-            user = {
-              email = config.sops.placeholder.shikanime-email;
-              name = config.sops.placeholder.shikanime-name;
-            };
-          } // optionalAttrs (cfg.jj.repositories != [ ]) {
-            "--when.repositories" = cfg.jj.repositories;
-          };
+          file = toml.generate "config.toml" (mkMerge [
+            cfg.jj.extraConfig
+            {
+              signing = {
+                backend = "ssh";
+                behavior = mkDefault "own";
+                key = sshSigningKey;
+              };
+              user = {
+                email = config.sops.placeholder.shikanime-email;
+                name = config.sops.placeholder.shikanime-name;
+              };
+            }
+          ]);
           mode = "0644";
         };
 
         shikanime-sapling-config = {
           file = (pkgs.formats.ini { }).generate "sapling.conf" {
-            ui = {
-              username = "${config.sops.placeholder.shikanime-name} <${config.sops.placeholder.shikanime-email}>";
-            };
+            ui.username = "${config.sops.placeholder.shikanime-name} <${config.sops.placeholder.shikanime-email}>";
             gpg.key = config.sops.placeholder.shikanime-gpg-key;
           };
           mode = "0644";
@@ -133,16 +126,12 @@ in
       };
     };
 
-    identities.git.includes = mkIf cfg.git.enable [
+    programs.git.includes = mkIf cfg.git.enable [
       (
-        let
-          baseEntry = {
-            path = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-git-config.path;
-          };
-        in
-        if cfg.git.gitpath != null
-        then baseEntry // { condition = "gitpath:${cfg.git.gitpath}"; }
-        else baseEntry
+        {
+          path = includePath;
+        }
+        // optionalAttrs (cfg.git.condition != null) { condition = cfg.git.condition; }
       )
     ];
 
@@ -150,7 +139,12 @@ in
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-jj-config.path;
     };
 
-    xdg.configFile."sapling/sapling.conf" = mkIf cfg.sapling.enable {
+    home.file = mkIf pkgs.stdenv.isDarwin {
+      "Library/Preferences/sapling/sapling.conf".source =
+        config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-sapling-config.path;
+    };
+
+    xdg.configFile."sapling/sapling.conf" = mkIf (!pkgs.stdenv.isDarwin) {
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-sapling-config.path;
     };
   };

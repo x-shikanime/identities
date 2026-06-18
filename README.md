@@ -4,7 +4,7 @@
 
 <!-- markdownlint-enable first-line-heading -->
 
-# About Identities
+# Identities
 
 These modules keep my identity data in one place and only emit the small config
 fragments that each tool needs.

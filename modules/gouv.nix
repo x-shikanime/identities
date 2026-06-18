@@ -24,7 +24,7 @@ in
 
     git = {
       enable = mkEnableOption "git identity includes for gouv" // {
-        default = config.programs.git.enable;
+        default = config.identities.git.enable;
       };
 
       condition = mkOption {
@@ -47,7 +47,7 @@ in
 
     jj = {
       enable = mkEnableOption "Jujutsu identity config for gouv" // {
-        default = config.programs.jujutsu.enable;
+        default = config.identities.jj.enable;
       };
 
       extraConfig = mkOption {
@@ -61,17 +61,16 @@ in
     };
 
     sapling.enable = mkEnableOption "sapling identity config for gouv" // {
-      default = config.programs.sapling.enable;
+      default = config.identities.sapling.enable;
     };
   };
 
   config = mkIf cfg.enable {
     sops = {
-      defaultSopsFile = ./../secrets/gouv.enc.yaml;
       secrets = {
-        gouv-email = { };
-        gouv-name = { };
-        gouv-ssh-signing-key = { };
+        gouv-email.sopsFile = ./../secrets/gouv.enc.yaml;
+        gouv-name.sopsFile = ./../secrets/gouv.enc.yaml;
+        gouv-ssh-signing-key.sopsFile = ./../secrets/gouv.enc.yaml;
       };
 
       templates = {

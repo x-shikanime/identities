@@ -24,7 +24,7 @@ in
 
     git = {
       enable = mkEnableOption "git identity includes for operator-6o" // {
-        default = config.programs.git.enable;
+        default = config.identities.git.enable;
       };
 
       condition = mkOption {
@@ -47,7 +47,7 @@ in
 
     jj = {
       enable = mkEnableOption "Jujutsu identity config for operator-6o" // {
-        default = config.programs.jujutsu.enable;
+        default = config.identities.jj.enable;
       };
 
       extraConfig = mkOption {
@@ -61,17 +61,16 @@ in
     };
 
     sapling.enable = mkEnableOption "sapling identity config for operator-6o" // {
-      default = config.programs.sapling.enable;
+      default = config.identities.sapling.enable;
     };
   };
 
   config = mkIf cfg.enable {
     sops = {
-      defaultSopsFile = ./../secrets/operator6o.enc.yaml;
       secrets = {
-        operator6o-email = { };
-        operator6o-name = { };
-        operator6o-ssh-signing-key = { };
+        operator6o-email.sopsFile = ./../secrets/operator6o.enc.yaml;
+        operator6o-name.sopsFile = ./../secrets/operator6o.enc.yaml;
+        operator6o-ssh-signing-key.sopsFile = ./../secrets/operator6o.enc.yaml;
       };
 
       templates = {

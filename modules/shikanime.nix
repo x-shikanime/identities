@@ -24,7 +24,7 @@ in
 
     git = {
       enable = mkEnableOption "git identity includes for shikanime" // {
-        default = config.programs.git.enable;
+        default = config.identities.git.enable;
       };
 
       condition = mkOption {
@@ -47,7 +47,7 @@ in
 
     jj = {
       enable = mkEnableOption "Jujutsu identity config for shikanime" // {
-        default = config.programs.jujutsu.enable;
+        default = config.identities.jj.enable;
       };
 
       extraConfig = mkOption {
@@ -61,18 +61,17 @@ in
     };
 
     sapling.enable = mkEnableOption "sapling identity config for shikanime" // {
-      default = config.programs.sapling.enable;
+      default = config.identities.sapling.enable;
     };
   };
 
   config = mkIf cfg.enable {
     sops = {
-      defaultSopsFile = ./../secrets/shikanime.enc.yaml;
       secrets = {
-        shikanime-email = { };
-        shikanime-gpg-key = { };
-        shikanime-name = { };
-        shikanime-ssh-signing-key = { };
+        shikanime-email.sopsFile = ./../secrets/shikanime.enc.yaml;
+        shikanime-gpg-key.sopsFile = ./../secrets/shikanime.enc.yaml;
+        shikanime-name.sopsFile = ./../secrets/shikanime.enc.yaml;
+        shikanime-ssh-signing-key.sopsFile = ./../secrets/shikanime.enc.yaml;
       };
 
       templates = {

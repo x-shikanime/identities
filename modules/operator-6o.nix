@@ -76,9 +76,8 @@ in
 
       templates = {
         operator6o-git-config = {
-          file = gitIni.generate "config" (mkMerge [
-            cfg.git.extraConfig
-            {
+          file = gitIni.generate "config" (
+            recursiveUpdate cfg.git.extraConfig {
               user = {
                 email = config.sops.placeholder.operator6o-email;
                 name = config.sops.placeholder.operator6o-name;
@@ -87,13 +86,12 @@ in
               commit.gpgsign = true;
               gpg.format = "ssh";
             }
-          ]);
+          );
         };
 
         operator6o-jj-config = {
-          file = toml.generate "config.toml" (mkMerge [
-            cfg.jj.extraConfig
-            {
+          file = toml.generate "config.toml" (
+            recursiveUpdate cfg.jj.extraConfig {
               signing = {
                 backend = "ssh";
                 behavior = mkDefault "own";
@@ -104,7 +102,7 @@ in
                 name = config.sops.placeholder.operator6o-name;
               };
             }
-          ]);
+          );
         };
 
         operator6o-sapling-include = {

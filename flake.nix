@@ -68,14 +68,39 @@
         treefmt-nix.flakeModule
       ];
 
-      perSystem = _: {
-        devenv.shells.default.imports = [
-          devlib.devenvModules.git
-          devlib.devenvModules.nix
-          devlib.devenvModules.shell
-          devlib.devenvModules.shikanime-studio
-        ];
-      };
+      perSystem =
+        { pkgs, ... }:
+        {
+          devenv.shells.default = {
+            imports = [
+              devlib.devenvModules.git
+              devlib.devenvModules.nix
+              devlib.devenvModules.shell
+              devlib.devenvModules.shikanime-studio
+            ];
+
+            packages = [
+              pkgs.age
+              pkgs.sops
+            ];
+
+            sops = {
+              enable = true;
+              settings.creation_rules = [
+                {
+                  path_regex = "secrets/(gouv|operator6o|shikanime)\\.enc\\.yaml";
+                  key_groups = [
+                    {
+                      age = [
+                        "age1pwl9yz4k4255a4h8qz7lafce8wxhsul0cnqwmr8528fqgujlfshshv3z3g"
+                      ];
+                    }
+                  ];
+                }
+              ];
+            };
+          };
+        };
 
       systems = [
         "x86_64-linux"

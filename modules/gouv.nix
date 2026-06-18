@@ -70,6 +70,7 @@ in
       secrets = {
         gouv-email.sopsFile = ./../secrets/gouv.enc.yaml;
         gouv-name.sopsFile = ./../secrets/gouv.enc.yaml;
+        gouv-gpg-key.sopsFile = ./../secrets/gouv.enc.yaml;
         gouv-ssh-signing-key.sopsFile = ./../secrets/gouv.enc.yaml;
       };
 
@@ -108,11 +109,14 @@ in
 
         gouv-sapling-include = {
           content = ''
-            [ui]
-            username = ${config.sops.placeholder.gouv-name} <${config.sops.placeholder.gouv-email}>
-
             [commit]
             gpgsign = true
+
+            [gpg]
+            key = ${config.sops.placeholder.gouv-gpg-key}
+
+            [ui]
+            username = ${config.sops.placeholder.gouv-name} <${config.sops.placeholder.gouv-email}>
 
             %include ${
               if pkgs.stdenv.isDarwin then

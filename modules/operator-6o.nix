@@ -70,6 +70,7 @@ in
       secrets = {
         operator6o-email.sopsFile = ./../secrets/operator6o.enc.yaml;
         operator6o-name.sopsFile = ./../secrets/operator6o.enc.yaml;
+        operator6o-gpg-key.sopsFile = ./../secrets/operator6o.enc.yaml;
         operator6o-ssh-signing-key.sopsFile = ./../secrets/operator6o.enc.yaml;
       };
 
@@ -108,11 +109,14 @@ in
 
         operator6o-sapling-include = {
           content = ''
-            [ui]
-            username = ${config.sops.placeholder.operator6o-name} <${config.sops.placeholder.operator6o-email}>
-
             [commit]
             gpgsign = true
+
+            [gpg]
+            key = ${config.sops.placeholder.operator6o-gpg-key}
+
+            [ui]
+            username = ${config.sops.placeholder.operator6o-name} <${config.sops.placeholder.operator6o-email}>
 
             %include ${
               if pkgs.stdenv.isDarwin then

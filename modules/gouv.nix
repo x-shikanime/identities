@@ -136,7 +136,7 @@ in
       )
     ];
 
-    xdg.configFile."jj/conf.d/gouv.conf" = mkIf cfg.jj.enable {
+    xdg.configFile."jj/conf.d/gouv.toml" = mkIf cfg.jj.enable {
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.gouv-jj-config.path;
     };
 

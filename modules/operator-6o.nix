@@ -136,7 +136,7 @@ in
       )
     ];
 
-    xdg.configFile."jj/conf.d/operator6o.conf" = mkIf cfg.jj.enable {
+    xdg.configFile."jj/conf.d/operator6o.toml" = mkIf cfg.jj.enable {
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.operator6o-jj-config.path;
     };
 

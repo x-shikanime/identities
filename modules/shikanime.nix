@@ -9,7 +9,9 @@ with lib;
 
 let
   cfg = config.identities.shikanime;
+  ini = pkgs.formats.ini { };
   gitIni = pkgs.formats.gitIni { };
+  yaml = pkgs.formats.yaml { };
   toml = pkgs.formats.toml { };
 in
 {
@@ -69,6 +71,8 @@ in
     sops = {
       secrets = {
         shikanime-email.sopsFile = ./../secrets/shikanime.enc.yaml;
+        github-token.sopsFile = ./../secrets/shikanime.enc.yaml;
+        gitlab-token.sopsFile = ./../secrets/shikanime.enc.yaml;
         shikanime-gpg-key.sopsFile = ./../secrets/shikanime.enc.yaml;
         shikanime-name.sopsFile = ./../secrets/shikanime.enc.yaml;
         shikanime-ssh-signing-key.sopsFile = ./../secrets/shikanime.enc.yaml;
@@ -124,6 +128,26 @@ in
             }
           '';
         };
+
+        ghstack-config = {
+          file = ini.generate "ghstackrc" {
+            ghstack = {
+              github_oauth = config.sops.placeholder.github-token;
+              github_url = "github.com";
+              github_username = "shikanime";
+            };
+          };
+          mode = "0640";
+        };
+
+        glab-cli-config.file = yaml.generate "config.yaml" {
+          git_protocol = "https";
+          hosts.gitlab.com = {
+            api_host = "gitlab.com";
+            api_protocol = "https";
+            token = config.sops.placeholder.gitlab-token;
+          };
+        };
       };
     };
 
@@ -146,6 +170,13 @@ in
 
     xdg.configFile."sapling/shikanime.conf" = mkIf (!pkgs.stdenv.isDarwin) {
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-sapling-include.path;
+    };
+
+    home.sessionVariables.GHSTACKRC_PATH = config.lib.file.mkOutOfStoreSymlink config.sops.templates.ghstack-config.path;
+
+    xdg.configFile."glab-cli/shikanime/config.yml" = {
+      force = true;
+      source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.glab-cli-config.path;
     };
   };
 }

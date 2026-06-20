@@ -85,13 +85,13 @@ tool settings.
 
 - `shikanime`
   - `jj/conf.d/shikanime.toml`
-  - `sapling/shikanime.conf`
+  - `sapling/shikanime/sapling.conf`
 - `gouv`
   - `jj/conf.d/gouv.toml`
-  - `sapling/gouv.conf`
+  - `sapling/gouv/sapling.conf`
 - `operator-6o`
   - `jj/conf.d/operator6o.toml`
-  - `sapling/operator6o.conf`
+  - `sapling/operator6o/sapling.conf`
 
 Git identity snippets are written through `programs.git.includes`.
 

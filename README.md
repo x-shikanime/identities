@@ -69,14 +69,21 @@ The design is intentionally small:
 - `identities.enable` turns on the identity system
 - `identities.git.enable`, `identities.jj.enable`, and
   `identities.sapling.enable` control the global defaults
+- `identities.ghstack.enable` and `identities.glab.enable` control the global
+  defaults for `shikanime` ghstack and glab config
 - `identities.<name>.enable` turns a specific identity on or off
 - `identities.<name>.git.enable`, `.jj.enable`, and `.sapling.enable` control
   that identity’s tool output
+- `identities.shikanime.ghstack.enable` and `.glab.enable` control whether those
+  config fragments are emitted for `shikanime`
 - `identities.<name>.git.extraConfig` merges into the generated Git include
 - `identities.<name>.git.condition` sets the Git include condition
 - `identities.<name>.jj.extraConfig` merges into the generated JJ config
 - `identities.<name>.sapling.extraConfig` merges into the generated Sapling
   config
+- `identities.shikanime.ghstack.extraConfig` merges into the generated
+  `ghstackrc`
+- `identities.shikanime.glab.extraConfig` merges into the generated glab config
 
 SSH signing is fixed in the modules. `extraConfig` is only for the remaining
 tool settings.

@@ -77,6 +77,38 @@ in
         type = types.attrs;
       };
     };
+
+    ghstack = {
+      enable = mkEnableOption "ghstack config for shikanime" // {
+        default = config.identities.ghstack.enable;
+      };
+
+      extraConfig = mkOption {
+        default = { };
+        description = ''
+          Extra ghstack config merged into the generated config.
+          The GitHub identity fields are fixed by the module and cannot be
+          overridden.
+        '';
+        type = types.attrs;
+      };
+    };
+
+    glab = {
+      enable = mkEnableOption "glab config for shikanime" // {
+        default = config.identities.glab.enable;
+      };
+
+      extraConfig = mkOption {
+        default = { };
+        description = ''
+          Extra glab config merged into the generated config.
+          The GitLab host and token fields are fixed by the module and cannot be
+          overridden.
+        '';
+        type = types.attrs;
+      };
+    };
   };
 
   config = mkIf cfg.enable {
@@ -129,24 +161,30 @@ in
           }
         );
 
-        ghstack-config = {
-          file = ini.generate "ghstackrc" {
-            ghstack = {
-              github_oauth = config.sops.placeholder.github-token;
-              github_url = "github.com";
-              github_username = "shikanime";
-            };
-          };
+        ghstack-config = mkIf cfg.ghstack.enable {
+          file = ini.generate "ghstackrc" (
+            recursiveUpdate cfg.ghstack.extraConfig {
+              ghstack = {
+                github_oauth = config.sops.placeholder.github-token;
+                github_url = "github.com";
+                github_username = "shikanime";
+              };
+            }
+          );
           mode = "0640";
         };
 
-        glab-cli-config.file = yaml.generate "config.yaml" {
-          git_protocol = "https";
-          hosts.gitlab.com = {
-            api_host = "gitlab.com";
-            api_protocol = "https";
-            token = config.sops.placeholder.gitlab-token;
-          };
+        glab-cli-config = mkIf cfg.glab.enable {
+          file = yaml.generate "config.yaml" (
+            recursiveUpdate cfg.glab.extraConfig {
+              git_protocol = "https";
+              hosts.gitlab.com = {
+                api_host = "gitlab.com";
+                api_protocol = "https";
+                token = config.sops.placeholder.gitlab-token;
+              };
+            }
+          );
         };
       };
     };
@@ -172,9 +210,11 @@ in
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.shikanime-sapling-config.path;
     };
 
-    home.sessionVariables.GHSTACKRC_PATH = config.lib.file.mkOutOfStoreSymlink config.sops.templates.ghstack-config.path;
+    home.sessionVariables = mkIf cfg.ghstack.enable {
+      GHSTACKRC_PATH = config.lib.file.mkOutOfStoreSymlink config.sops.templates.ghstack-config.path;
+    };
 
-    xdg.configFile."glab-cli/shikanime/config.yml" = {
+    xdg.configFile."glab-cli/shikanime/config.yml" = mkIf cfg.glab.enable {
       force = true;
       source = config.lib.file.mkOutOfStoreSymlink config.sops.templates.glab-cli-config.path;
     };

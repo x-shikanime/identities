@@ -17,5 +17,13 @@ with lib;
     sapling.enable = mkEnableOption "sapling identity config for all enabled identities" // {
       default = config.programs.sapling.enable;
     };
+
+    ghstack.enable = mkEnableOption "ghstack config for all enabled identities" // {
+      default = false;
+    };
+
+    glab.enable = mkEnableOption "glab config for all enabled identities" // {
+      default = false;
+    };
   };
 }

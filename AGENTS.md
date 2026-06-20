@@ -59,6 +59,10 @@ Inspired by Catppuccin/nix:
 - `identities.<name>.enable` — per-identity toggle
 - `identities.<name>.git.enable` / `.jj.enable` / `.sapling.enable` — per-tool
   output control
+- `identities.ghstack.enable` / `identities.glab.enable` — global toggles for
+  `shikanime` ghstack and glab config
+- `identities.shikanime.ghstack.enable` / `.glab.enable` — per-tool output
+  control for the `shikanime` ghstack and glab fragments
 - `identities.<name>.git.extraConfig` — forwarded git config merged into the
   generated include; SSH signing fields are fixed by the module
 - `identities.<name>.git.condition` — optional include condition, such as
@@ -68,6 +72,10 @@ Inspired by Catppuccin/nix:
   `--when.repositories` there to scope it to repositories
 - `identities.<name>.sapling.extraConfig` — forwarded Sapling config merged into
   the generated config; username and signing fields are fixed by the module
+- `identities.shikanime.ghstack.extraConfig` — forwarded ghstack config merged
+  into the generated config; GitHub identity fields are fixed by the module
+- `identities.shikanime.glab.extraConfig` — forwarded glab config merged into
+  the generated config; GitLab host and token fields are fixed by the module
 - `identities.homeModules.default` — option-driven home-manager module that
   exposes `identities.shikanime.enable`, `identities.gouv.enable`, and
   `identities."operator-6o".enable`

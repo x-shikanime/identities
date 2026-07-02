@@ -68,45 +68,19 @@
         treefmt-nix.flakeModule
       ];
 
-      perSystem =
-        { pkgs, ... }:
-        {
-          devenv.shells.default = {
-            imports = [
-              devlib.devenvModules.git
-              devlib.devenvModules.nix
-              devlib.devenvModules.shell
-              devlib.devenvModules.shikanime-studio
-            ];
+      perSystem = _: {
+        devenv.shells.default = {
+          imports = [
+            devlib.devenvModules.git
+            devlib.devenvModules.nix
+            devlib.devenvModules.shell
+            devlib.devenvModules.shikanime-studio
+            ./modules/devenv/default.nix
+          ];
 
-            packages = [
-              pkgs.age
-              pkgs.sops
-            ];
-
-            sops = {
-              enable = true;
-              settings.creation_rules = [
-                {
-                  path_regex = "secrets/(gouv|operator6o|shikanime)\\.enc\\.yaml";
-                  key_groups = [
-                    {
-                      age =
-                        let
-                          telsha = "age1pwl9yz4k4255a4h8qz7lafce8wxhsul0cnqwmr8528fqgujlfshshv3z3g";
-                          nixtar = "age1um232l0h8wn9mtha2qf4f4mnf7ucjayvf5qxjvynatmasg8qg5mshekvjl";
-                        in
-                        [
-                          telsha
-                          nixtar
-                        ];
-                    }
-                  ];
-                }
-              ];
-            };
-          };
+          sops.enable = true;
         };
+      };
 
       systems = [
         "x86_64-linux"
@@ -115,10 +89,16 @@
       ];
 
       flake = {
-        homeModule = ./modules/default.nix;
+        devenvModule = ./modules/devenv/default.nix;
+        devenvModules = {
+          default = ./modules/devenv/default.nix;
+          identities = ./modules/devenv/identities.nix;
+        };
+
+        homeModule = ./modules/home/default.nix;
         homeModules = {
-          default = ./modules/default.nix;
-          identities = ./modules/default.nix;
+          default = ./modules/home/default.nix;
+          identities = ./modules/home/default.nix;
         };
       };
     };
